@@ -1,6 +1,6 @@
-# OCPP Client
+# Firmware Esp32 Ocpp
 
-**OCPP Client** é um cliente OCPP (Open Charge Point Protocol) desenvolvido para permitir a comunicação entre um carregador de veículo elétrico (EVSE) e um sistema central (Central System) em uma estação de carregamento elétrico.
+**Firmware Esp 32 Ocpp** é um cliente OCPP (Open Charge Point Protocol) desenvolvido para permitir a comunicação entre um carregador de veículo elétrico (EVSE) e um sistema central (Central System) em uma estação de carregamento elétrico.
 
 Este projeto foi desenvolvido para atender às necessidades de carregamento de veículos elétricos em estações de recarga, permitindo a autenticação de usuários, monitoramento do status de carregamento, controle de carregadores e a troca de informações com sistemas centrais compatíveis com o protocolo OCPP.
 
