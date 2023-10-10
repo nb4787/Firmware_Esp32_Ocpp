@@ -6,17 +6,8 @@
 
 //Library definitions
 #include <Arduino.h>
-#if defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-ESP8266WiFiMulti WiFiMulti;
-#elif defined(ESP32)
 #include <WiFi.h>
-#else
-#error only ESP32 or ESP8266 supported at the moment
-#endif
-
-#include <ArduinoOcpp.h>   //Actually is used MicroOcpp
+#include <ArduinoOcpp.h>
 //End library definitions
 
 //Wi-Fi connection data
@@ -38,6 +29,15 @@ ESP8266WiFiMulti WiFiMulti;
 */
 //End of settings 
 
+
+// Pino de controle do carregador
+const int chargerControlPin = 22;
+
+// Estado atual do carregador
+bool isCharging = false;
+
+void onAuthorizeResponse(JsonObject response);
+
 void setup() 
 {
     //Initialize Serial and Wi-Fi
@@ -45,114 +45,75 @@ void setup()
     Serial.print(F("[main] Wait for WiFi: "));
     //End of initialie Serial and Wi-Fi
 
-    #if defined(ESP8266)
-        WiFiMulti.addAP(STASSID, STAPSK);
-        
-        while (WiFiMulti.run() != WL_CONNECTED) 
-        {
-            Serial.print('.');
-            delay(1000);
-        }
+    //WiFi definitions and connection 
+    WiFi.begin(STASSID, STAPSK);
     
-    #elif defined(ESP32)
-        WiFi.begin(STASSID, STAPSK);
-        
-        while (!WiFi.isConnected()) 
-        {
-            Serial.print('.');
-            delay(1000);
-        }
-    
-    #else
-    #error only ESP32 or ESP8266 supported at the moment
-    #endif
+    while (!WiFi.isConnected()) 
+    {
+        Serial.print('.');
+        delay(1000);
+    }
 
     Serial.println(F(" connected!"));
+    //End WiFi connection
 
     //Initialize the OCPP library
-    /*mocpp_initialize*/ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "My Charging Station", "Greenv Mobility"); 
+    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Model", "Greenv Mobility");
     //End os initialize OCPP library 
     
-    //Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
-    setEnergyMeterInput([]() 
-    {
-        //Take the energy register of the main electricity meter and return the value in watt-hours
-        return 0.f;
-    });
+    // Defina o pino do carregador como uma saída digital
+    pinMode(chargerControlPin, OUTPUT);
 
-    setSmartChargingCurrentOutput([](float limit) 
-    {
-        //Set the SAE J1772 Control Pilot value here
-        Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit);
-    });
+    // Inicialmente, o carregador está desligado
+    isCharging = false;
 
-    setConnectorPluggedInput([]() 
-    {
-        //Return true if an EV is plugged to this EVSE
-        return false;
-    });
-    //... see MicroOcpp.h for more settings
+    // Desligue o carregador (opcional)
+    digitalWrite(chargerControlPin, LOW);
+
 }
 
 void loop() 
 {
-    //Do all OCPP stuff (process WebSocket input, send recorded meter values to Central System, etc.)
-    /*mocpp_loop*/ocpp_loop();
-    
-    //Energize EV plug if OCPP transaction is up and running
-    if (ocppPermitsCharge()) 
-    {
-      //OCPP set up and transaction running. Energize the EV plug here
-      //Serial.println("RELE ON");
-    } 
-    else 
-    {
-      //No transaction running at the moment. De-energize EV plug
-      //Serial.println("RELE OFF");
-    }
+  // Verifique a entrada serial para ID Tags
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
 
-    //Use NFC reader to start and stop transactions
-    if (/* RFID chip detected? */ false) 
-    {
-        String idTag = "0123456789ABCD"; //e.g. idTag = RFID.readIdTag();
+    // Imprima a ID Tag para depuração
+    Serial.print("ID Tag lida: ");
+    Serial.println(input);
 
-        if (!getTransaction()) 
-        {
-            //No transaction running or preparing. Begin a new transaction
-            Serial.printf("[main] Begin Transaction with idTag %s\n", idTag.c_str());
+    // Verifique se a ID Tag é válida
+    authorize(input.c_str(), onAuthorizeResponse); 
+  }
 
-            /*
-             * Begin Transaction. The OCPP lib will prepare transaction by checking the Authorization
-             * and listen to the ConnectorPlugged Input. When the Authorization succeeds and an EV
-             * is plugged, the OCPP lib will send the StartTransaction
-            */
-            
-            auto ret = beginTransaction(idTag.c_str());
-
-            if (ret) 
-            {
-                Serial.println(F("[main] Transaction initiated. OCPP lib will send a StartTransaction when" \
-                                 "ConnectorPlugged Input becomes true and if the Authorization succeeds"));
-            } 
-            else 
-            {
-                Serial.println(F("[main] No transaction initiated"));
-            }
-        } 
-        else 
-        {
-            //Transaction already initiated. Check if to stop current Tx by RFID card
-            if (idTag.equals(getTransactionIdTag())) {
-                //Card matches -> user can stop Tx
-                Serial.println(F("[main] End transaction by RFID card"));
-
-                endTransaction();
-            } 
-            else 
-            {
-                Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
-            }
-        }
-    }
-    //... see MicroOcpp.h for more possibilities
+  // Mantenha a comunicação OCPP ativa
+  ocpp_loop();
 }
+
+
+void onAuthorizeResponse(JsonObject response) {
+  const char *status = response["idTagInfo"]["status"];
+  if (strcmp(status, "Accepted") == 0) {
+    if (!isCharging) {
+      // Inicie o carregamento
+      startTransaction(getTransactionIdTag());
+      isCharging = true;
+
+      // Ligue o carregador (defina o pino como alto)
+      digitalWrite(chargerControlPin, HIGH);
+      Serial.println("Carregador ligado");
+    } else {
+      // Encerre o carregamento
+      endTransaction(getTransactionIdTag(), "Fim do Carregamento");
+      isCharging = false;
+
+      // Desligue o carregador (defina o pino como baixo)
+      digitalWrite(chargerControlPin, LOW);
+      Serial.println("Carregador desligado");
+    }
+  } else {
+    Serial.println("ID Tag não autorizada pelo servidor");
+  }
+}
+
