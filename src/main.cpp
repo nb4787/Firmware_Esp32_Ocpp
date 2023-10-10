@@ -1,118 +1,126 @@
-/*
- * matth-x and Kevin Souto/MicroOcpp
+/* matth-x and Kevin Souto/MicroOcpp
  * Copyright Matthias Akstaller 2019 - 2023
  * MIT License
  */
 
-//Library definitions
+//Inicialização das bibliotecas
 #include <Arduino.h>
 #include <WiFi.h>
-#include <ArduinoOcpp.h>
-//End library definitions
+#include <ArduinoOcpp.h> //A biblioteca atualizada é <MicroOcpp.h>
+//Fim da inicialização das bibliotecas
 
-//Wi-Fi connection data
-#define STASSID "GreenV-IoT"
-#define STAPSK  "Greenv@135"
-//End Wi-Fi connection data
+//Definição dos dados da rede Wi-Fi
+/*
+#define STASSID "Rorschach"
+#define STAPSK  "espectral"
+*/
 
-//  Settings which worked for my SteVe instance:
 ///*
-#define OCPP_HOST "192.168.0.176"
-#define OCPP_PORT 8180
-#define OCPP_URL "ws://192.168.0.176:8180/steve/websocket/CentralSystemService/EMMA"
+#define STASSID "Ozymandias"
+#define STAPSK  "emmastone"
 //*/
 
 /*
-#define OCPP_HOST "steve.greenv.com.br"
-#define OCPP_PORT 8080
-#define OCPP_URL "wss://steve.greenv.com.br/steve/websocket/CentralSystemService/CHARGEBOXNAME"
+#define STASSID "Greenv"
+#define STAPSK  "AL@Greenv23*"
 */
-//End of settings 
+//Fim da definição dos dados da rede Wi-Fi 
 
+//Início da configuração dos dados para conexão Web Socket 
+///*
+#define OCPP_HOST "189.93.47.58"
+#define OCPP_PORT 8180
+#define OCPP_URL  "ws://189.93.47.58:8180/steve/websocket/CentralSystemService/SAMARA"
+//*/
 
-// Pino de controle do carregador
-const int chargerControlPin = 22;
+/*
+#define OCPP_HOST "centralsystem.dev.greenv.com.br"
+#define OCPP_PORT 801
 
-// Estado atual do carregador
-bool isCharging = false;
+#define OCPP_URL "ws://centralsystem.dev.greenv.com.br/ocpp/1.6/MEDIDOR-T03"
+*/
+//Fim das configurações dos dados para conexão Web Socket
 
-void onAuthorizeResponse(JsonObject response);
+int selectedConnector = -1;
 
-void setup() 
+void setup()
 {
-    //Initialize Serial and Wi-Fi
     Serial.begin(115200);
-    Serial.print(F("[main] Wait for WiFi: "));
-    //End of initialie Serial and Wi-Fi
 
-    //WiFi definitions and connection 
+    Serial.println(F("[main] Wait for WiFi: "));
+
     WiFi.begin(STASSID, STAPSK);
-    
-    while (!WiFi.isConnected()) 
+    while (!WiFi.isConnected())
     {
         Serial.print('.');
         delay(1000);
     }
 
     Serial.println(F(" connected!"));
-    //End WiFi connection
 
-    //Initialize the OCPP library
-    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Model", "Greenv Mobility");
-    //End os initialize OCPP library 
-    
-    // Defina o pino do carregador como uma saída digital
-    pinMode(chargerControlPin, OUTPUT);
-
-    // Inicialmente, o carregador está desligado
-    isCharging = false;
-
-    // Desligue o carregador (opcional)
-    digitalWrite(chargerControlPin, LOW);
-
+    /*mocpp_initialize*/ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Charger", "Greenv Mobility");
 }
 
-void loop() 
+void loop()
 {
-  // Verifique a entrada serial para ID Tags
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
+    /*mocpp_loop*/ocpp_loop();
 
-    // Imprima a ID Tag para depuração
-    Serial.print("ID Tag lida: ");
-    Serial.println(input);
-
-    // Verifique se a ID Tag é válida
-    authorize(input.c_str(), onAuthorizeResponse); 
-  }
-
-  // Mantenha a comunicação OCPP ativa
-  ocpp_loop();
-}
-
-
-void onAuthorizeResponse(JsonObject response) {
-  const char *status = response["idTagInfo"]["status"];
-  if (strcmp(status, "Accepted") == 0) {
-    if (!isCharging) {
-      // Inicie o carregamento
-      startTransaction(getTransactionIdTag());
-      isCharging = true;
-      
-      // Ligue o carregador (defina o pino como alto)
-      digitalWrite(chargerControlPin, HIGH);
-      Serial.println("Carregador ligado");
-    } else {
-      // Encerre o carregamento
-      endTransaction(getTransactionIdTag(), "Fim do Carregamento");
-      isCharging = false;
-      
-      // Desligue o carregador (defina o pino como baixo)
-      digitalWrite(chargerControlPin, LOW);
-      Serial.println("Carregador desligado");
+    if (selectedConnector == -1)
+    {
+        Serial.println(F("[main] Selecione o número do conector (1, 2, etc.): "));
+        while (Serial.available() == 0)
+        {
+            // Aguarda até que o usuário insira o número do conector.
+        }
+        selectedConnector = Serial.parseInt();
+        Serial.printf("[main] Conector selecionado: %d\n", selectedConnector);
     }
-  } else {
-    Serial.println("ID Tag não autorizada pelo servidor");
-  }
+    else
+    {
+        if (ocppPermitsCharge(selectedConnector))
+        {
+            // OCPP está configurado e a transação está em andamento.
+            // Você pode ligar a alimentação do plugue do veículo elétrico aqui.
+        }
+        else
+        {
+            // Nenhuma transação em andamento no momento.
+            // Você pode desligar a alimentação do plugue do veículo elétrico aqui, se necessário.
+        }
+
+        if (Serial.available() > 0)
+        {
+            String idTag = Serial.readStringUntil('\n');
+            idTag.trim();
+
+            if (!getTransaction(selectedConnector))
+            {
+                Serial.printf("[main] Iniciar transação com idTag %s no conector %d\n", idTag.c_str(), selectedConnector);
+                auto ret = beginTransaction(idTag.c_str(), selectedConnector);
+
+                if (ret)
+                {
+                    Serial.println(F("[main] Transação iniciada. A biblioteca OCPP enviará um StartTransaction quando" \
+                                     " ConnectorPlugged Input se tornar verdadeiro e se a autorização for bem-sucedida."));
+                }
+                else
+                {
+                    Serial.println(F("[main] Nenhuma transação iniciada"));
+                }
+            }
+            else
+            {
+                if (idTag.equals(getTransactionIdTag(selectedConnector)))
+                {
+                    Serial.printf("[main] Encerrar transação com cartão RFID no conector %d\n", selectedConnector);
+                    endTransaction(nullptr, nullptr, selectedConnector);
+                    selectedConnector = -1; // Reseta o conector selecionado para que ele pergunte novamente
+                }
+                else
+                {
+                    Serial.println(F("[main] Não é possível encerrar a transação com o cartão RFID (cartão diferente?)"));
+                }
+            }
+        }
+    }
 }
