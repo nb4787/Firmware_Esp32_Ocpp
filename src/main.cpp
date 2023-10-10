@@ -29,15 +29,14 @@
 */
 //End of settings 
 
-const int connectorId = 1;
 
-void freeUseFlow();
-void authorizedUseFlow();
+// Pino de controle do carregador
+const int chargerControlPin = 22;
 
-bool isEVConnected()
-{
-  return true;
-}
+// Estado atual do carregador
+bool isCharging = false;
+
+void onAuthorizeResponse(JsonObject response);
 
 void setup() 
 {
@@ -62,73 +61,59 @@ void setup()
     ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Model", "Greenv Mobility");
     //End os initialize OCPP library 
     
-    setConnectorPluggedInput(isEVConnected);
+    // Defina o pino do carregador como uma saída digital
+    pinMode(chargerControlPin, OUTPUT);
+
+    // Inicialmente, o carregador está desligado
+    isCharging = false;
+
+    // Desligue o carregador (opcional)
+    digitalWrite(chargerControlPin, LOW);
 
 }
 
 void loop() 
 {
-    //Do all OCPP stuff (process WebSocket input, send recorded meter values to Central System, etc.)
-    ocpp_loop();
+  // Verifique a entrada serial para ID Tags
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
 
-/*    
-    if (true) 
-    {
-      freeUseFlow();
-    }
-    else
-    {
-      authorizedUseFlow();
-    }
-*/
-  if (isEVConnected() && !isTransactionActive()) {
-    // Inicie uma transação sem verificar credenciais
-    beginTransaction_authorized("WARNER");
+    // Imprima a ID Tag para depuração
+    Serial.print("ID Tag lida: ");
+    Serial.println(input);
 
-    // Aguarde algum tempo (simulado)
-    delay(5000); // Espere por 5 segundos
-
-    // Termine a transação (simulado)
-    endTransaction("WARNER", "Fim da Transação");
-
-    // Aguarde algum tempo (simulado)
-    delay(5000); // Espere por mais 5 segundos
+    // Verifique se a ID Tag é válida
+    authorize(input.c_str(), onAuthorizeResponse); 
   }
 
-
-
+  // Mantenha a comunicação OCPP ativa
+  ocpp_loop();
 }
 
-void freeUseFlow()
-{
-/*
-  if (!isOperative(connectorId) && !isTransactionRunning(connectorId))
-  {
 
-    stopEnergizingEV(connectorId);
-    continue;
-  }
-  
-  startEnergizingEV(connectorId); //Passagem de corrente sempre permitida quando freeVendEnabled
+void onAuthorizeResponse(JsonObject response) {
+  const char *status = response["idTagInfo"]["status"];
+  if (strcmp(status, "Accepted") == 0) {
+    if (!isCharging) {
+      // Inicie o carregamento
+      startTransaction(getTransactionIdTag());
+      isCharging = true;
 
-  if (isTransactionRunning(connectorId))
-  {
-    changeLedMode(CHARGING);
+      // Ligue o carregador (defina o pino como alto)
+      digitalWrite(chargerControlPin, HIGH);
+      Serial.println("Carregador ligado");
+    } else {
+      // Encerre o carregamento
+      endTransaction(getTransactionIdTag(), "Fim do Carregamento");
+      isCharging = false;
+
+      // Desligue o carregador (defina o pino como baixo)
+      digitalWrite(chargerControlPin, LOW);
+      Serial.println("Carregador desligado");
+    }
+  } else {
+    Serial.println("ID Tag não autorizada pelo servidor");
   }
-  else
-  {
-    changeLedMode(UNLOCKED);
-  }
-  //Define o comportamento de quando o carregador começa a passar corrente para o carro
-  if (isCharging(connectorId) && !isTransactionRunning(connectorId))
-  {
-    resetPzems(numConnectors);
-    Serial.print("Inicio da transacao");
-    beginTransaction(ID_TAG.c_str() ,connectorId);
-  }
-  if (!isCharging(connectorId) && isTransactionRunning(connectorId))
-  {
-    endTransaction("EVDisconnected", connectorId);
-  }
-*/
 }
+
