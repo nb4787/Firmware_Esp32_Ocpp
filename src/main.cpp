@@ -1,53 +1,20 @@
-/*
- * matth-x and Kevin Souto/MicroOcpp
- * Copyright Matthias Akstaller 2019 - 2023
- * MIT License
- */
-
-//Library definitions
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoOcpp.h>
-//End library definitions
 
-//Wi-Fi connection data
-#define STASSID "GreenV-IoT"
-#define STAPSK  "Greenv@135"
-//End Wi-Fi connection data
+#define STASSID "Rorschach"
+#define STAPSK  "espectral"
 
-//  Settings which worked for my SteVe instance:
-///*
-#define OCPP_HOST "192.168.0.176"
+#define OCPP_HOST "192.168.0.178"
 #define OCPP_PORT 8180
-#define OCPP_URL "ws://192.168.0.176:8180/steve/websocket/CentralSystemService/EMMA"
-//*/
-
-/*
-#define OCPP_HOST "steve.greenv.com.br"
-#define OCPP_PORT 8080
-#define OCPP_URL "wss://steve.greenv.com.br/steve/websocket/CentralSystemService/CHARGEBOXNAME"
-*/
-//End of settings 
-
-
-// Pino de controle do carregador
-const int chargerControlPin = 22;
-
-// Estado atual do carregador
-bool isCharging = false;
-
-void onAuthorizeResponse(JsonObject response);
+#define OCPP_URL "ws://192.168.0.178:8180/steve/websocket/CentralSystemService/SAMARA"
 
 void setup() 
 {
-    //Initialize Serial and Wi-Fi
     Serial.begin(115200);
-    Serial.print(F("[main] Wait for WiFi: "));
-    //End of initialie Serial and Wi-Fi
+    Serial.println(F("[main] Wait for WiFi: "));
 
-    //WiFi definitions and connection 
     WiFi.begin(STASSID, STAPSK);
-    
     while (!WiFi.isConnected()) 
     {
         Serial.print('.');
@@ -55,64 +22,62 @@ void setup()
     }
 
     Serial.println(F(" connected!"));
-    //End WiFi connection
 
-    //Initialize the OCPP library
-    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Model", "Greenv Mobility");
-    //End os initialize OCPP library 
-    
-    // Defina o pino do carregador como uma saída digital
-    pinMode(chargerControlPin, OUTPUT);
-
-    // Inicialmente, o carregador está desligado
-    isCharging = false;
-
-    // Desligue o carregador (opcional)
-    digitalWrite(chargerControlPin, LOW);
+    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Charger", "Greenv Mobility");
 
 }
 
-void loop() 
-{
-  // Verifique a entrada serial para ID Tags
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
+void loop() {
+    ocpp_loop();
 
-    // Imprima a ID Tag para depuração
-    Serial.print("ID Tag lida: ");
-    Serial.println(input);
-
-    // Verifique se a ID Tag é válida
-    authorize(input.c_str(), onAuthorizeResponse); 
-  }
-
-  // Mantenha a comunicação OCPP ativa
-  ocpp_loop();
-}
-
-
-void onAuthorizeResponse(JsonObject response) {
-  const char *status = response["idTagInfo"]["status"];
-  if (strcmp(status, "Accepted") == 0) {
-    if (!isCharging) {
-      // Inicie o carregamento
-      startTransaction(getTransactionIdTag());
-      isCharging = true;
-      
-      // Ligue o carregador (defina o pino como alto)
-      digitalWrite(chargerControlPin, HIGH);
-      Serial.println("Carregador ligado");
-    } else {
-      // Encerre o carregamento
-      endTransaction(getTransactionIdTag(), "Fim do Carregamento");
-      isCharging = false;
-      
-      // Desligue o carregador (defina o pino como baixo)
-      digitalWrite(chargerControlPin, LOW);
-      Serial.println("Carregador desligado");
+    if (ocppPermitsCharge()) 
+    {
+        // OCPP está configurado e a transação está em andamento.
+        // Você pode ligar a alimentação do plugue do veículo elétrico aqui.
+    } 
+    else 
+    {
+        // Nenhuma transação em andamento no momento.
+        // Você pode desligar a alimentação do plugue do veículo elétrico aqui, se necessário.
     }
-  } else {
-    Serial.println("ID Tag não autorizada pelo servidor");
-  }
+
+    // Leitura da ID do RFID via Serial
+    if (Serial.available() > 0) 
+    {
+        String idTag = Serial.readStringUntil('\n');
+        idTag.trim();
+
+        if (!getTransaction()) 
+        {
+            // Nenhuma transação em andamento. Inicie uma nova transação.
+            Serial.printf("[main] Iniciar transação com idTag %s\n", idTag.c_str());
+
+            auto ret = beginTransaction(idTag.c_str());
+
+            if (ret) 
+            {
+                Serial.println(F("[main] Transação iniciada. A biblioteca OCPP enviará um StartTransaction quando" \
+                                 " ConnectorPlugged Input se tornar verdadeiro e se a autorização for bem-sucedida."));
+            } 
+            else 
+            {
+                Serial.println(F("[main] Nenhuma transação iniciada"));
+            }
+
+        } 
+        else 
+        {
+            // Transação já iniciada. Verifique se deve encerrar a transação com o cartão RFID atual.
+            if (idTag.equals(getTransactionIdTag())) {
+                // O cartão corresponde - o usuário pode encerrar a transação.
+                Serial.println(F("[main] Encerrar transação com cartão RFID"));
+
+                endTransaction();
+            } 
+            else 
+            {
+                Serial.println(F("[main] Não é possível encerrar a transação com o cartão RFID (cartão diferente?)"));
+            }
+        }
+    }
 }
