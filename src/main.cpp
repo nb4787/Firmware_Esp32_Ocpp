@@ -6,17 +6,8 @@
 
 //Library definitions
 #include <Arduino.h>
-#if defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-ESP8266WiFiMulti WiFiMulti;
-#elif defined(ESP32)
 #include <WiFi.h>
-#else
-#error only ESP32 or ESP8266 supported at the moment
-#endif
-
-#include <ArduinoOcpp.h>   //Actually is used MicroOcpp
+#include <ArduinoOcpp.h>
 //End library definitions
 
 //Wi-Fi connection data
@@ -38,6 +29,16 @@ ESP8266WiFiMulti WiFiMulti;
 */
 //End of settings 
 
+const int connectorId = 1;
+
+void freeUseFlow();
+void authorizedUseFlow();
+
+bool isEVConnected()
+{
+  return true;
+}
+
 void setup() 
 {
     //Initialize Serial and Wi-Fi
@@ -45,114 +46,89 @@ void setup()
     Serial.print(F("[main] Wait for WiFi: "));
     //End of initialie Serial and Wi-Fi
 
-    #if defined(ESP8266)
-        WiFiMulti.addAP(STASSID, STAPSK);
-        
-        while (WiFiMulti.run() != WL_CONNECTED) 
-        {
-            Serial.print('.');
-            delay(1000);
-        }
+    //WiFi definitions and connection 
+    WiFi.begin(STASSID, STAPSK);
     
-    #elif defined(ESP32)
-        WiFi.begin(STASSID, STAPSK);
-        
-        while (!WiFi.isConnected()) 
-        {
-            Serial.print('.');
-            delay(1000);
-        }
-    
-    #else
-    #error only ESP32 or ESP8266 supported at the moment
-    #endif
+    while (!WiFi.isConnected()) 
+    {
+        Serial.print('.');
+        delay(1000);
+    }
 
     Serial.println(F(" connected!"));
+    //End WiFi connection
 
     //Initialize the OCPP library
-    /*mocpp_initialize*/ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "My Charging Station", "Greenv Mobility"); 
+    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Model", "Greenv Mobility");
     //End os initialize OCPP library 
     
-    //Integrate OCPP functionality. You can leave out the following part if your EVSE doesn't need it.
-    setEnergyMeterInput([]() 
-    {
-        //Take the energy register of the main electricity meter and return the value in watt-hours
-        return 0.f;
-    });
+    setConnectorPluggedInput(isEVConnected);
 
-    setSmartChargingCurrentOutput([](float limit) 
-    {
-        //Set the SAE J1772 Control Pilot value here
-        Serial.printf("[main] Smart Charging allows maximum charge rate: %.0f\n", limit);
-    });
-
-    setConnectorPluggedInput([]() 
-    {
-        //Return true if an EV is plugged to this EVSE
-        return false;
-    });
-    //... see MicroOcpp.h for more settings
 }
 
 void loop() 
 {
     //Do all OCPP stuff (process WebSocket input, send recorded meter values to Central System, etc.)
-    /*mocpp_loop*/ocpp_loop();
-    
-    //Energize EV plug if OCPP transaction is up and running
-    if (ocppPermitsCharge()) 
+    ocpp_loop();
+
+/*    
+    if (true) 
     {
-      //OCPP set up and transaction running. Energize the EV plug here
-      //Serial.println("RELE ON");
-    } 
-    else 
-    {
-      //No transaction running at the moment. De-energize EV plug
-      //Serial.println("RELE OFF");
+      freeUseFlow();
     }
-
-    //Use NFC reader to start and stop transactions
-    if (/* RFID chip detected? */ false) 
+    else
     {
-        String idTag = "0123456789ABCD"; //e.g. idTag = RFID.readIdTag();
-
-        if (!getTransaction()) 
-        {
-            //No transaction running or preparing. Begin a new transaction
-            Serial.printf("[main] Begin Transaction with idTag %s\n", idTag.c_str());
-
-            /*
-             * Begin Transaction. The OCPP lib will prepare transaction by checking the Authorization
-             * and listen to the ConnectorPlugged Input. When the Authorization succeeds and an EV
-             * is plugged, the OCPP lib will send the StartTransaction
-            */
-            
-            auto ret = beginTransaction(idTag.c_str());
-
-            if (ret) 
-            {
-                Serial.println(F("[main] Transaction initiated. OCPP lib will send a StartTransaction when" \
-                                 "ConnectorPlugged Input becomes true and if the Authorization succeeds"));
-            } 
-            else 
-            {
-                Serial.println(F("[main] No transaction initiated"));
-            }
-        } 
-        else 
-        {
-            //Transaction already initiated. Check if to stop current Tx by RFID card
-            if (idTag.equals(getTransactionIdTag())) {
-                //Card matches -> user can stop Tx
-                Serial.println(F("[main] End transaction by RFID card"));
-
-                endTransaction();
-            } 
-            else 
-            {
-                Serial.println(F("[main] Cannot end transaction by RFID card (different card?)"));
-            }
-        }
+      authorizedUseFlow();
     }
-    //... see MicroOcpp.h for more possibilities
+*/
+  if (isEVConnected() && !isTransactionActive()) {
+    // Inicie uma transação sem verificar credenciais
+    beginTransaction_authorized("WARNER");
+
+    // Aguarde algum tempo (simulado)
+    delay(5000); // Espere por 5 segundos
+
+    // Termine a transação (simulado)
+    endTransaction("WARNER", "Fim da Transação");
+
+    // Aguarde algum tempo (simulado)
+    delay(5000); // Espere por mais 5 segundos
+  }
+
+
+
+}
+
+void freeUseFlow()
+{
+/*
+  if (!isOperative(connectorId) && !isTransactionRunning(connectorId))
+  {
+
+    stopEnergizingEV(connectorId);
+    continue;
+  }
+  
+  startEnergizingEV(connectorId); //Passagem de corrente sempre permitida quando freeVendEnabled
+
+  if (isTransactionRunning(connectorId))
+  {
+    changeLedMode(CHARGING);
+  }
+  else
+  {
+    changeLedMode(UNLOCKED);
+  }
+  //Define o comportamento de quando o carregador começa a passar corrente para o carro
+  if (isCharging(connectorId) && !isTransactionRunning(connectorId))
+  {
+    resetPzems(numConnectors);
+    Serial.print("Inicio da transacao");
+    beginTransaction(ID_TAG.c_str() ,connectorId);
+  }
+  if (!isCharging(connectorId) && isTransactionRunning(connectorId))
+  {
+    endTransaction("EVDisconnected", connectorId);
+  }
+*/
 }
