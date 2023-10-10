@@ -8,9 +8,9 @@ Este projeto foi desenvolvido para atender às necessidades de carregamento de v
 
 - **Comunicação OCPP**: Este cliente implementa a versão 1.6 do protocolo OCPP, permitindo a troca de mensagens padrão com sistemas centrais OCPP compatíveis.
 
-- **Autorização RFID**: Os usuários podem autenticar seus cartões RFID para iniciar sessões de carregamento.
+- **Autorização RFID**: Os usuários podem autenticar seus cartões RFID para iniciar sessões de carregamento [EM FASE DE TESTES, POR ENQUANTO, APENAS VIA SERIAL].
 
-- **Monitoramento em Tempo Real**: O cliente OCPP fornece informações em tempo real sobre o status de cada carregador, incluindo tensão, corrente, potência, energia e muito mais.
+- **Monitoramento em Tempo Real**: O cliente OCPP fornece informações em tempo real sobre o status de cada carregador, incluindo tensão, corrente, potência, energia e muito mais [MEDIÇÕES AINDA NÃO FORAM IMPLEMENTADAS].
 
 - **Controle de Carregador**: A capacidade de iniciar, parar e reiniciar sessões de carregamento, bem como ativar e desativar carregadores, está disponível.
 
