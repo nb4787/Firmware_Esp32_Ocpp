@@ -2,7 +2,7 @@
  * matth-x and Kevin Souto/MicroOcpp
  * Copyright Matthias Akstaller 2019 - 2023
  * MIT License
-*/
+ */
 
 //Library definitions
 #include <Arduino.h>
@@ -99,7 +99,7 @@ void onAuthorizeResponse(JsonObject response) {
       // Inicie o carregamento
       startTransaction(getTransactionIdTag());
       isCharging = true;
-
+      
       // Ligue o carregador (defina o pino como alto)
       digitalWrite(chargerControlPin, HIGH);
       Serial.println("Carregador ligado");
@@ -107,7 +107,7 @@ void onAuthorizeResponse(JsonObject response) {
       // Encerre o carregamento
       endTransaction(getTransactionIdTag(), "Fim do Carregamento");
       isCharging = false;
-
+      
       // Desligue o carregador (defina o pino como baixo)
       digitalWrite(chargerControlPin, LOW);
       Serial.println("Carregador desligado");
@@ -116,4 +116,3 @@ void onAuthorizeResponse(JsonObject response) {
     Serial.println("ID Tag não autorizada pelo servidor");
   }
 }
-
