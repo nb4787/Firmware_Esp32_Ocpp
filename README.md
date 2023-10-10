@@ -6,7 +6,7 @@ Este projeto foi desenvolvido para atender às necessidades de carregamento de v
 
 ## Recursos Principais
 
-- **Comunicação OCPP**: Este cliente implementa a versão 2.0 do protocolo OCPP, permitindo a troca de mensagens padrão com sistemas centrais OCPP compatíveis.
+- **Comunicação OCPP**: Este cliente implementa a versão 1.6 do protocolo OCPP, permitindo a troca de mensagens padrão com sistemas centrais OCPP compatíveis.
 
 - **Autorização RFID**: Os usuários podem autenticar seus cartões RFID para iniciar sessões de carregamento.
 
@@ -14,7 +14,7 @@ Este projeto foi desenvolvido para atender às necessidades de carregamento de v
 
 - **Controle de Carregador**: A capacidade de iniciar, parar e reiniciar sessões de carregamento, bem como ativar e desativar carregadores, está disponível.
 
-- **Interface Web**: Uma interface web simples NÃO está incluída para monitorar e controlar a estação de recarga através de um navegador.
+- **Interface Web**: Uma interface web NÃO está incluída para monitorar e controlar a estação de recarga através de um navegador. Indica-se a utilização do servidor Steve. 
 
 ## Requisitos de Configuração
 
