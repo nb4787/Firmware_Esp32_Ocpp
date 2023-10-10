@@ -42,5 +42,5 @@ Este projeto é licenciado sob a Licença MIT - consulte o arquivo [LICENSE](LIC
 
 ---
 
-Para obter mais informações sobre o servidor SteVe, visite [https://github.com/steve-community/steve).
+Para obter mais informações sobre o servidor SteVe, visite [https://github.com/steve-community/steve](https://github.com/steve-community/steve).
 
