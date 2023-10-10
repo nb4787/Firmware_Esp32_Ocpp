@@ -1,3 +1,5 @@
+![logo](https://github.com/kevincsouto/Firmware_Esp32_Ocpp/blob/main/images/logo.png)
+
 # Firmware Esp32 Ocpp
 
 **Firmware Esp 32 Ocpp** é um cliente OCPP (Open Charge Point Protocol) desenvolvido para permitir a comunicação entre um carregador de veículo elétrico (EVSE) e um sistema central (Central System) em uma estação de carregamento elétrico.
