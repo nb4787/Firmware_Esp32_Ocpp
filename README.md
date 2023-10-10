@@ -42,7 +42,7 @@ Este projeto é licenciado sob a Licença MIT - consulte o arquivo [LICENSE](LIC
 
 ---
 
-![SteVe Logo](https://raw.githubusercontent.com/steve-ocpp/steve/master/docs/images/steve-logo.png)
+![SteVe Logo](https://github.com/steve-community/steve/blob/master/src/main/resources/webapp/static/images/logo.png)
 
 Para obter mais informações sobre o servidor SteVe, visite [https://github.com/steve-community/steve](https://github.com/steve-community/steve).
 
