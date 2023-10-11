@@ -1,13 +1,18 @@
+
+//Bibliotecas utilizadas no projeto
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoOcpp.h>
 
-#define STASSID "Rorschach"
-#define STAPSK  "espectral"
+#define STASSID "Rorschach" //Coloque SSID de sua rede aqui
+#define STAPSK  "espectral" //Coloque a Senha de sua rede aqui
 
-#define OCPP_HOST "192.168.0.178"
-#define OCPP_PORT 8180
-#define OCPP_URL "ws://192.168.0.178:8180/steve/websocket/CentralSystemService/SAMARA"
+//Dados do servidor OCPP em que está se conectando
+#define OCPP_HOST "192.168.0.178" //Host local não inclui porta
+#define OCPP_PORT 8180            //Porta em que está configurada   
+#define OCPP_URL "ws://192.168.0.178:8180/steve/websocket/CentralSystemService/SAMARA" 
+/*No link websocket necessariamente tem que incluir o nome de um carregador previamente
+cadastrado em seu sistema OCPP */
 
 void setup() 
 {
@@ -23,7 +28,7 @@ void setup()
 
     Serial.println(F(" connected!"));
 
-    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Charger", "Greenv Mobility");
+    ocpp_initialize(OCPP_HOST, OCPP_PORT, OCPP_URL, "Generic Charger", "Firmware Esp32 Ocpp");
 
 }
 
